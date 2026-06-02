@@ -289,3 +289,15 @@
     text-shadow: 0 0 4px var(--xcom-alert);
     font-weight: bold;
 }
+
+/* --- DESPLAZAMIENTO TÁCTICO DE BOTONES DE ACCIÓN --- */
+/* --- DESPLAZAMIENTO TÁCTICO INCREMENTADO (25% + ROTACIÓN) --- */
+.btn-action {
+    transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.15s;
+}
+
+/* Desplazamientos más lejanos y erráticos */
+.alien-btn-shift-up    { transform: translateY(-25%) rotate(-2deg); }
+.alien-btn-shift-down  { transform: translateY(25%) rotate(2deg); }
+.alien-btn-shift-left  { transform: translateX(-25%) rotate(-1deg); }
+.alien-btn-shift-right { transform: translateX(25%) rotate(1deg); }
