@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="passwords.js"></script>
+    <script src="motor_ejercicios.js"></script>
+    <script src="proyectos.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        if (!window.keysMaster) window.keysMaster = {};
+    </script>
+
+    <script src="sistemas_produccion.js"></script>
+    <script src="logistica_suministros.js"></script>
+    <script src="operaciones_internacionales.js"></script>
+    <script src="navegacion_tactica.js"></script>
+    <script src="ojo_halcon.js"></script>
+    <script src="logistica_infraestructura.js"></script>
+    <script src="defensa_estructural.js"></script>
+    <script src="ingenieria_instalaciones.js"></script>
+    <script src="balistica_avanzada.js"></script>
+    <script src="vectores_proyeccion.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <title>XCOM: GLOBAL COMMAND 2.0</title>
+    
+</head>
+<body>
+
+<header>
+    <div>NACIÓN: <span id="header-country" style="color: var(--xcom-blue);">---</span></div>
+</header>
+
+<div id="viewport">
+    <div id="screen-login" class="login-screen">
+        <h1 style="letter-spacing: 3px;">XCOM: ACCESO A CENTRAL</h1>
+        <select id="select-country" class="input-xcom"></select>
+        <input type="password" id="pass-field" class="input-xcom" placeholder="PASSWORD / ACCESS_CODE" maxlength="8" autocomplete="off">
+        <button class="btn-action" onclick="login()">CONECTAR</button>
+    </div>
+
+    <div id="screen-projects" style="display:none">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px; flex-wrap: wrap;">
+        <button class="btn-back" onclick="logout()" style="margin: 5px;">
+            << ATRÁS
+        </button>
+        <h2 style="margin: 5px; flex-grow: 1; text-align: center; font-size: 1.2em;">CENTRAL DE MISIONES</h2>
+        <div style="width: 80px;" class="hide-mobile"></div> 
+    </div>
+    
+    <div class="folder-grid" id="project-grid" style="margin-top: 20px; padding-bottom: 40px;"></div>
+</div>
+
+    <div id="screen-modules" style="display:none">
+        <button class="btn-back" onclick="showScreen('screen-projects')"><< ATRÁS</button>
+        <h2 id="project-title">MÓDULOS</h2>
+        <div class="folder-grid" id="module-grid"></div>
+        <div id="cert-zone" style="display:none; margin-top:30px; text-align:center;">
+            <button class="btn-action" style="background:var(--xcom-gold)" onclick="generateCert()">DESCARGAR CERTIFICADO</button>
+        </div>
+    </div>
+
+    <div id="screen-exercise" style="display:none">
+        <button class="btn-back" onclick="backToModules()"><< CERRAR ARCHIVO</button>
+        <button class="btn-back" style="color: var(--xcom-gold); border-color: var(--xcom-gold);" onclick="showHelp()">? AYUDA</button>
+        <div class="module-content">
+            <h3 id="ex-title" style="color: var(--xcom-blue);">DATA_FILE</h3>
+            <p id="ex-desc" style="font-size: 1.1em; line-height: 1.5;">...</p>
+            <input type="text" id="ex-input" class="input-xcom" placeholder="RESPUESTA" autocomplete="off">
+            <br>
+            <button class="btn-action" onclick="validateExercise()">ENVIAR DATOS</button>
+        </div>
+    </div>
+
+    <div id="screen-cert" style="display:none; text-align: center;">
+        <button class="btn-back" onclick="backToModules()"><< REGRESAR</button>
+        <h2>REPORTE OFICIAL GENERADO</h2>
+        <canvas id="certCanvas" width="800" height="500"></canvas>
+        <br>
+        <button class="btn-action" style="background:var(--xcom-gold)" onclick="downloadCert()">GUARDAR PNG</button>
+    </div>
+</div>
+
+<script>
+
+    const SISTEMA_ACTIVO = true;
+    const BLUR_ACTIVO = false; // true = Con blur (Original) | false = Sin blur (Desactivado)
+    let currentCountry = "";
+    let currentProject = "";
+    let currentExId = "";
+    let seed = 0;
+    let progress = {};
+
+    window.onload = function() {
+        const select = document.getElementById('select-country');
+        select.innerHTML = ""; 
+        
+        Object.keys(credencialesPaises).sort().forEach(pais => {
+            const opt = document.createElement('option');
+            opt.value = pais;
+            opt.textContent = pais.toUpperCase();
+            select.appendChild(opt);
+        });
+
+        // Inicializa el progreso por primera vez
+        limpiarProgreso();
+    };
+
+    function limpiarProgreso() {
+        progress = {};
+        projects.forEach(p => {
+            progress[p.id] = new Array(p.temas.length).fill(false);
+        });
+    }
+
+    function login() {
+
+        if (!SISTEMA_ACTIVO) {
+            alert("Los aliens tienen hackeada la comunicacion, el servicio no esta disponible por el momento");
+            return;
+        }
+
+        const pass = document.getElementById('pass-field').value;
+        const country = document.getElementById('select-country').value;
+        const expectedKey = credencialesPaises[country];
+
+        if(pass === "XCOM2026" || pass === expectedKey) {
+            currentCountry = country;
+            seed = pass === "XCOM2026" ? 2026 : parseInt(expectedKey.split('-')[0], 36) || 1234;
+            document.getElementById('header-country').innerText = country.toUpperCase();
+            
+            alert("ACCESO CONCEDIDO."); // Alerta de confirmación integrada
+            
+            renderProjects();
+            showScreen('screen-projects');
+        } else {
+            alert("ACCESO DENEGADO.");
+        }
+    }
+
+    function logout() {
+        document.getElementById('pass-field').value = "";
+        limpiarProgreso(); // Borra el progreso del país anterior
+        showScreen('screen-login');
+    }
+
+    function renderProjects() {
+    const grid = document.getElementById('project-grid');
+    grid.innerHTML = "";
+    projects.forEach(p => {
+        const allDone = progress[p.id].every(v => v === true);
+        
+        // Definimos el color: usamos el de la misión o el dorado de XCOM por defecto
+        const diffColor = p.color || "var(--xcom-gold)";
+        const diffLevel = p.difficulty || "FÁCIL";
+
+        grid.innerHTML += `
+            <div class="card ${allDone ? 'complete' : ''}" onclick="openProject('${p.id}')">
+                <!-- Aplicamos el color dinámico aquí -->
+                <div class="diff-tag" style="color: ${diffColor}">NIVEL: ${diffLevel}</div>
+                [${p.name.toUpperCase()}]
+                <span class="status-text">${allDone ? 'FINALIZADO' : 'PENDIENTE'}</span>
+            </div>`;
+    });
+}
+
+    function showScreen(id) {
+    document.querySelectorAll('#viewport > div').forEach(div => {
+        div.style.display = 'none';
+    });
+    
+    const target = document.getElementById(id);
+    // Si es el login, usamos flex para que no se desacomode el centrado
+    if (id === 'screen-login') {
+        target.style.display = 'flex';
+        target.style.flexDirection = 'column';
+        target.style.alignItems = 'center';
+    } else {
+        target.style.display = 'block';
+    }
+}
+
+   function openProject(pid) {
+    currentProject = pid;
+    const proj = projects.find(p => p.id === pid);
+    document.getElementById('project-title').innerText = proj.name.toUpperCase();
+    
+    const grid = document.getElementById('module-grid');
+    grid.innerHTML = "";
+    
+    proj.temas.forEach((m, idx) => {
+        const done = progress[pid] && progress[pid][idx];
+        grid.innerHTML += `
+            <div class="card ${done ? 'complete' : ''}" onclick="openExercise(${idx})">
+                ${m.toUpperCase()}
+                <span class="status-text">${done ? 'COMPLETO' : 'INCOMPLETO'}</span>
+            </div>`;
+    });
+    
+    // --- LÓGICA DE CLAVE MAESTRA ---
+    // Verificamos si todos están hechos O si se usó la clave maestra (seed 2026)
+    const allDone = progress[pid] && progress[pid].every(v => v === true);
+    const isAdmin = (seed === 2026); // Identificamos el acceso maestro
+
+    if (allDone || isAdmin) {
+        document.getElementById('cert-zone').style.display = 'block';
+        // Opcional: Cambiar el texto si es acceso maestro
+        if (isAdmin && !allDone) {
+            console.log("MODO ADMIN: Acceso total concedido.");
+        }
+    } else {
+        document.getElementById('cert-zone').style.display = 'none';
+    }
+    
+    showScreen('screen-modules');
+}
+
+    function openExercise(idx) {
+    currentExId = idx;
+    const proj = projects.find(p => p.id === currentProject);
+    const tema = proj.temas[idx];
+    document.getElementById('ex-title').innerText = "ARCHIVO: " + tema;
+    
+    const dataProblema = MotorEjercicios.obtenerProblema(currentProject, idx, seed);
+    
+    // --- LÓGICA DE TEXTO PARTIDO Y BORROSO ---
+    const textoCompleto = dataProblema.desc;
+    const mitad = Math.floor(textoCompleto.length / 2);
+    
+    // Buscamos el espacio más cercano a la mitad para no cortar palabras
+    const espacioCercano = textoCompleto.indexOf(' ', mitad);
+    const puntoCorte = espacioCercano !== -1 ? espacioCercano : mitad;
+
+    const parte1 = textoCompleto.substring(0, puntoCorte);
+    const parte2 = textoCompleto.substring(puntoCorte);
+
+    // Inyectamos el HTML con las dos mitades bloqueadas
+    document.getElementById('ex-desc').innerHTML = `
+        <div class="reveal-container">
+            <span class="fragmento-bloqueado">${parte1}</span>
+            <span class="fragmento-bloqueado">${parte2}</span>
+        </div>
+    `;
+    
+    window.currentSol = dataProblema.sol; 
+    document.getElementById('ex-input').value = "";
+    showScreen('screen-exercise');
+}
+
+    function validateExercise() {
+    const input = document.getElementById('ex-input').value.toLowerCase().trim();
+    if(input === "xcom2026") { completeEx(); return; }
+    
+    const val = parseFloat(input);
+    
+    // Definimos la tolerancia como el 2% de la solución correcta
+    const tolerancia = Math.abs(window.currentSol * 0.02); 
+    
+    if(isNaN(val)) {
+        alert("ERROR: DATO NO NUMÉRICO DETECTADO.");
+    } else if(Math.abs(val - window.currentSol) <= tolerancia) {
+        // La respuesta se acepta si la diferencia es menor o igual al 2%
+        completeEx();
+    } else {
+        alert("DATOS ERRÓNEOS. REINTENTAR CÁLCULO.");
+    }
+}
+
+    function completeEx() {
+    // 1. Marca el módulo actual como completado
+    progress[currentProject][currentExId] = true;
+    
+    alert("TRANSMISIÓN EXITOSA. DATOS CORRECTOS.");
+    
+    // 2. Refresca la lógica de proyectos para que el cambio de estado 
+    // se refleje en la pantalla principal (añadiendo la clase .complete)
+    renderProjects(); 
+
+    // 3. Regresa a la vista de módulos
+    openProject(currentProject);
+}
+
+    function backToModules() { openProject(currentProject); }
+
+    // Función para generar la vista previa en el canvas (mantiene la estética visual)
+    function generateCert() {
+    const canvas = document.getElementById('certCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // 1. Limpieza y Fondo Estilo XCOM
+    ctx.fillStyle = "#000b14"; 
+    ctx.fillRect(0, 0, 800, 500);
+    
+    // Marco de Neón
+    ctx.strokeStyle = "#00d4ff"; 
+    ctx.lineWidth = 8; 
+    ctx.strokeRect(20, 20, 760, 460);
+    
+    // 2. Encabezado Principal
+    ctx.fillStyle = "#00d4ff"; 
+    ctx.font = "bold 32px Segoe UI"; 
+    ctx.textAlign = "center";
+    ctx.fillText("CERTIFICADO DE APTITUD TÉCNICA", 400, 100);
+    
+    // 3. Información del País (Logueado)
+    ctx.font = "20px Segoe UI"; 
+    ctx.fillStyle = "#fff";
+    ctx.fillText("VALIDADOR DE COMPETENCIA DE NACIÓN:", 400, 180);
+    
+    ctx.font = "bold 50px Segoe UI"; 
+    ctx.fillStyle = "#00d4ff";
+    ctx.fillText(currentCountry.toUpperCase(), 400, 270);
+    
+    // 4. Información del Proyecto (Dinámica según proyectos.js)
+    const projObj = projects.find(p => p.id === currentProject);
+    const nombreProyecto = projObj ? projObj.name : "OPERACIÓN DESCONOCIDA";
+    
+    ctx.fillStyle = "#ffcc00"; 
+    ctx.font = "22px Segoe UI";
+    ctx.fillText("PROYECTO: " + nombreProyecto.toUpperCase(), 400, 360);
+    
+    // 5. OBTENCIÓN DE LA CLAVE DEL PAÍS (Lógica corregida)
+    ctx.font = "14px Segoe UI"; 
+    ctx.fillStyle = "rgba(0, 212, 255, 0.5)";
+    
+    let certKey = "NO_DATA";
+
+    // Verificamos que el objeto global keysMaster exista y tenga el ID del proyecto actual
+    if (window.keysMaster && window.keysMaster[currentProject]) {
+        // Buscamos la clave del país dentro de ese proyecto específico
+        certKey = window.keysMaster[currentProject][currentCountry] || "CLAVE_NO_ASIGNADA";
+    }
+    
+    ctx.font = "12px 'Courier New', Courier, monospace"; 
+    ctx.fillStyle = "rgba(0, 212, 255, 0.6)";
+    ctx.fillText("ID VERIFICACIÓN OFICIAL", 400, 420);
+
+    // Clave más grande y legible
+    ctx.font = "bold 28px 'Courier New', Courier, monospace"; 
+    ctx.fillStyle = "#ffffff"; // Blanco puro para máximo contraste
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = "#00d4ff"; // Efecto de brillo (glow)
+    ctx.fillText(certKey, 400, 450);
+    
+    // Resetear sombra para que no afecte otros elementos
+    ctx.shadowBlur = 0;
+
+    // 6. Finalización y Visualización
+    const btnAction = document.querySelector('#screen-cert .btn-action');
+    if (btnAction) btnAction.innerText = "DESCARGAR PDF OFICIAL";
+    
+    showScreen('screen-cert');
+}
+
+    // Función principal para exportar a PDF
+    // Función principal para exportar a PDF con TEXTO REAL
+    function downloadCert() {
+        const { jsPDF } = window.jspdf;
+        
+        // 1. Crear PDF en formato horizontal (Landscape)
+        // Usamos las mismas dimensiones del canvas (800x500) para mantener consistencia
+        const pdf = new jsPDF('l', 'px', [800, 500]);
+        
+        // 2. Fondo (Simulando la estética del canvas)
+        pdf.setFillColor(0, 11, 20); // #000b14
+        pdf.rect(0, 0, 800, 500, 'F');
+        
+        // 3. Marco de Neón
+        pdf.setDrawColor(0, 212, 255); // #00d4ff
+        pdf.setLineWidth(8);
+        pdf.rect(20, 20, 760, 460, 'D');
+        
+        // 4. Título Principal
+        pdf.setTextColor(0, 212, 255);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(32);
+        pdf.text("CERTIFICADO DE APTITUD TÉCNICA", 400, 100, { align: "center" });
+        
+        // 5. Información del País
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(20);
+        pdf.setFont("helvetica", "normal");
+        pdf.text("VALIDADOR DE COMPETENCIA DE NACIÓN:", 400, 180, { align: "center" });
+        
+        pdf.setTextColor(0, 212, 255);
+        pdf.setFontSize(50);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(currentCountry.toUpperCase(), 400, 270, { align: "center" });
+        
+        // 6. Información del Proyecto
+        const projObj = projects.find(p => p.id === currentProject);
+        const nombreProyecto = projObj ? projObj.name : "OPERACIÓN DESCONOCIDA";
+        
+        pdf.setTextColor(255, 204, 0); // #ffcc00
+        pdf.setFontSize(22);
+        pdf.text("PROYECTO: " + nombreProyecto.toUpperCase(), 400, 360, { align: "center" });
+        
+        // 7. Clave de Verificación (La más importante para extraer)
+        let certKey = "NO_DATA";
+        if (window.keysMaster && window.keysMaster[currentProject]) {
+            certKey = window.keysMaster[currentProject][currentCountry] || "CLAVE_NO_ASIGNADA";
+        }
+        
+        pdf.setTextColor(0, 212, 255);
+        pdf.setFontSize(12);
+        pdf.setFont("courier", "normal");
+        pdf.text("ID VERIFICACIÓN OFICIAL", 400, 420, { align: "center" });
+
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(28);
+        pdf.setFont("courier", "bold");
+        pdf.text(certKey, 400, 450, { align: "center" });
+        
+        // 8. Guardar archivo
+        pdf.save(`${currentCountry}_${currentProject}.pdf`);
+    }
+
+
+    function showHelp() {
+    const textElement = document.getElementById('help-text');
+    let pista = "Analice los datos proporcionados en el archivo de misión.";
+
+    // Lógica de pistas basada en el ID del proyecto actual
+    switch(currentProject) {
+        case 'defensa_estructural':
+            pista = "Si te piden el borde o la cerca, suma todos los lados (Perímetro). Si te piden el piso o la superficie, usa la fórmula de área que anotamos en la libreta.";
+            break;
+
+        case 'logistica_infraestructura':
+            pista = "Usa la 'Regla de 3'. Acomoda tus datos: si con tanto material hago esto, ¿con cuánto hago lo otro?. Multiplica cruzado y divide acostado.";
+            break;
+
+        case 'navegacion_tactica':
+            pista = "Estamos buscando ángulos con Trigonometría. Mira qué lados tienes: ¿es el de enfrente (opuesto) o el de junto (adyacente)?. Usa las funciones Sin-1, Cos-1 o Tan-1";
+            break;
+
+        case 'ojo_halcon':
+            pista = "¡Teorema de Pitágoras!. Si buscas la distancia más larga (diagonal), eleva los dos lados al cuadrado, súmalos y saca la raíz. Si buscas una altura, al lado largo réstale el corto (usando cuadrados).";
+            break;
+
+        case 'operaciones_internacionales':
+            pista = "¡Cuidado con las unidades gringas!. Primero multiplica tu dato por el valor de conversión (como 1.61 para millas o 0.91 para yardas) y luego haz el cálculo de la figura.";
+            break;
+
+        case 'logistica_suministros':
+            pista = "Problema de dos pasos. Primero saca el perímetro o el área de la figura, y luego usa una Regla de 3 para saber cuántos botes, rollos o piezas necesitas en total.";
+            break;
+
+        case 'sistemas_produccion':
+            pista = "Misión combinada: 1. Convierte la unidad (millas a km, etc.). 2. Saca el área o perímetro. 3. Multiplica por el costo o cantidad que te dan al final.";
+            break;
+
+        case 'balistica_avanzada':
+            pista = "Trigonometría pura. Te dan un ángulo y un lado. Si quieres la altura, suele ser con Tangente o Seno. Si quieres la base, suele ser con Coseno. ¡Calculadora en modo DEG!.";
+            break;
+
+        case 'ingenieria_instalaciones':
+            pista = "Aqui debes utilizar todos los temas mezclados... Mucha suerte soldado";
+            break;
+
+        case 'vectores_proyeccion':
+            pista = "Aqui debes utilizar todos los temas mezclados... Mucha suerte soldado";
+            break;
+
+        default:
+            pista = "Analiza los datos del archivo. Ingresa solo el número final usando punto (.) para los decimales.";
+    }
+
+    textElement.innerText = pista;
+    document.getElementById('help-modal').style.display = 'block';
+    document.getElementById('help-overlay').style.display = 'block';
+}
+
+function closeHelp() {
+    document.getElementById('help-modal').style.display = 'none';
+    document.getElementById('help-overlay').style.display = 'none';
+}
+
+window.oncontextmenu = function(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    return false;
+};
+
+// Bloquea atajos de teclado (Ctrl+C, Ctrl+U, F12)
+window.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && (e.key === 'c' || e.key === 'u' || e.key === 's')) {
+        e.preventDefault();
+    }
+    if (e.key === 'F12') {
+        e.preventDefault();
+    }
+});
+
+// Bloquea el arrastre del texto
+window.addEventListener('dragstart', function(e) {
+    e.preventDefault();
+});
+
+// Si el usuario cambia de pestaña o minimiza el navegador, ocultamos todo
+// Si el usuario cambia de pestaña o minimiza el navegador, ocultamos todo y borramos progreso
+// Si el usuario cambia de pestaña o minimiza el navegador, ocultamos todo, borramos progreso y forzamos login
+// Si el usuario cambia de pestaña o minimiza el navegador, ocultamos todo, borramos progreso y forzamos login
+/*document.addEventListener("visibilitychange", function() {
+    if (document.hidden) {
+        limpiarProgreso(); 
+        document.getElementById('pass-field').value = ""; 
+        showScreen('screen-login'); 
+       alert("BRECHA DE SEGURIDAD: CONEXIÓN INTERRUMPIDA.");
+    }
+});*/
+
+// Si el navegador pierde el foco (ej. al intentar abrir la barra de capturas)
+window.onblur = function() {
+    if (BLUR_ACTIVO) { // <-- Condición añadida
+        document.querySelectorAll('.fragmento-bloqueado').forEach(el => {
+            el.style.filter = 'blur(20px)'; 
+        });
+    }
+};
+
+window.onfocus = function() {
+    if (BLUR_ACTIVO) { // <-- Condición añadida
+        document.querySelectorAll('.fragmento-bloqueado').forEach(el => {
+            el.style.filter = ''; 
+        });
+    }
+};
+
+window.onload = function() {
+        // --- CONTROL INTERACTIVO DE BLUR ---
+        if (!BLUR_ACTIVO) {
+            const style = document.createElement('style');
+            style.innerHTML = `
+                .fragmento-bloqueado, 
+                .fragmento-bloqueado:hover, 
+                .fragmento-bloqueado:active { 
+                    filter: none !important; 
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        const select = document.getElementById('select-country');
+        select.innerHTML = ""; 
+        
+        Object.keys(credencialesPaises).sort().forEach(pais => {
+            const opt = document.createElement('option');
+            opt.value = pais;
+            opt.textContent = pais.toUpperCase();
+            select.appendChild(opt);
+        });
+
+        // Inicializa el progreso por primera vez
+        limpiarProgreso();
+    };
+
+</script>
+
+
+<div id="help-overlay" class="help-overlay" onclick="closeHelp()"></div>
+<div id="help-modal" class="help-modal">
+    <h3 style="color: var(--xcom-gold); margin-top: 0;">ASISTENCIA TÁCTICA</h3>
+    <p id="help-text" style="font-family: monospace; font-size: 0.9em;"></p>
+    <button class="btn-back" onclick="closeHelp()" style="width: 100%; margin: 0;">ENTENDIDO</button>
+</div>
+<div id="qrcode" style="display:none;"></div>
+</body>
+</html>
