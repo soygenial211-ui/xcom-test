@@ -93,102 +93,99 @@
     let seed = 0;
     let progress = {};
 
-    // --- MOTOR DE ATAQUES ALIENÍGENAS ALEATORIOS ---
-// --- MOTOR DE ATAQUES ALIENÍGENAS CONTINUOS ---
-// --- MOTOR DE ATAQUES ALIENÍGENAS UNIFICADO (TARJETAS + TEXTO EX) ---
-// --- MOTOR DE ATAQUES ALIENÍGENAS CON INTERVALO VARIABLE (1 A 5 SEG) ---
-// --- MOTOR 1: ATAQUE AZAROSO A TARJETAS (INTERVALO CORTO: 1 A 5 SEGUNDOS) ---
+// --- MOTOR 1: TARJETAS Y BOTONES (FRECUENCIA ALTA: 1 A 5 SEGUNDOS) ---
 function programarAtaqueTarjetasAlien() {
+    // 1. Alteración de Tarjetas
     const tarjetas = document.querySelectorAll('.card');
     if (tarjetas.length > 0) {
         const cantidadAfectadas = Math.floor(Math.random() * tarjetas.length) + 1;
-        const indices = Array.from({ length: tarjetas.length }, (_, i) => i);
-        indices.sort(() => Math.random() - 0.5);
+        const indices = Array.from({ length: tarjetas.length }, (_, i) => i).sort(() => Math.random() - 0.5);
 
         for (let i = 0; i < Math.min(cantidadAfectadas, indices.length); i++) {
             const tarjetaObjetivo = tarjetas[indices[i]];
-
             if (!tarjetaObjetivo.classList.contains('alien-attack-shake')) {
                 const tipoAtaque = Math.random();
-                if (tipoAtaque < 0.35) {
-                    tarjetaObjetivo.classList.add('alien-attack-shake');
-                } else if (tipoAtaque < 0.70) {
-                    tarjetaObjetivo.classList.add('alien-attack-blur');
-                } else {
-                    tarjetaObjetivo.classList.add('alien-attack-shake', 'alien-attack-blur');
-                }
+                if (tipoAtaque < 0.35) tarjetaObjetivo.classList.add('alien-attack-shake');
+                else if (tipoAtaque < 0.70) tarjetaObjetivo.classList.add('alien-attack-blur');
+                else tarjetaObjetivo.classList.add('alien-attack-shake', 'alien-attack-blur');
 
-                const duracionAtaque = Math.floor(Math.random() * 700) + 500;
                 setTimeout(() => {
                     tarjetaObjetivo.classList.remove('alien-attack-shake', 'alien-attack-blur');
-                }, duracionAtaque);
+                }, Math.floor(Math.random() * 700) + 500);
             }
         }
     }
 
-    // Intervalo variable de 1 a 5 segundos
+    // 2. Desplazamiento Frecuente de Botones
+    const botonesAccion = document.querySelectorAll('.btn-action');
+    botonesAccion.forEach(boton => {
+        // Probabilidad de desvío aumentada al 85% por ciclo
+        if (boton.offsetParent !== null && Math.random() <= 0.85) {
+            const desvios = ['alien-btn-shift-up', 'alien-btn-shift-down', 'alien-btn-shift-left', 'alien-btn-shift-right'];
+            const desvioAleatorio = desvios[Math.floor(Math.random() * desvios.length)];
+            
+            boton.classList.add(desvioAleatorio);
+            
+            const esBotonEnviar = boton.getAttribute('onclick') === 'validateExercise()';
+            if (esBotonEnviar) boton.style.backgroundColor = 'var(--xcom-alert)';
+
+            // Duración del salto visual
+            setTimeout(() => {
+                boton.classList.remove('alien-btn-shift-up', 'alien-btn-shift-down', 'alien-btn-shift-left', 'alien-btn-shift-right');
+                if (esBotonEnviar) boton.style.backgroundColor = '';
+            }, Math.floor(Math.random() * 800) + 600);
+        }
+    });
+
     const proximoIntervalo = Math.floor(Math.random() * 4000) + 1000;
     setTimeout(programarAtaqueTarjetasAlien, proximoIntervalo);
 }
 
-// --- MOTOR 2: INTERCEPCIÓN SELECTIVA DE PALABRAS (INTERVALO LARGO: 15 A 30 SEGUNDOS) ---
+// --- MOTOR 2: CORRUPCIÓN DE PALABRAS (NUEVA FRECUENCIA ACELERADA: 4 A 10 SEGUNDOS) ---
 function programarAtaquePalabrasAlien() {
     const textoEjercicio = document.getElementById('ex-desc');
     
-    // Ejecutar solo si el contenedor existe y es visible en pantalla
     if (textoEjercicio && textoEjercicio.offsetParent !== null) {
-        
-        // Guardamos el HTML intacto para la posterior restauración limpia
         const contenidoOriginal = textoEjercicio.innerHTML;
-
-        // Buscamos nodos de texto profundo para alterar palabras sin romper tus fragmentos interactivos
         const walker = document.createTreeWalker(textoEjercicio, NodeFilter.SHOW_TEXT, null, false);
         let nodosDeTexto = [];
         let nodo;
         
         while (nodo = walker.nextNode()) {
-            // Ignoramos nodos vacíos o saltos de línea molestos
-            if (nodo.nodeValue.trim().length > 0) {
-                nodosDeTexto.push(nodo);
-            }
+            if (nodo.nodeValue.trim().length > 0) nodosDeTexto.push(nodo);
         }
 
         if (nodosDeTexto.length > 0) {
-            // Seleccionamos un nodo de texto aleatorio dentro del ejercicio
             const nodoRandom = nodosDeTexto[Math.floor(Math.random() * nodosDeTexto.length)];
-            const palabras = nodoRandom.nodeValue.split(/(\s+)/); // Conserva espacios para no deformar el texto
+            const palabras = nodoRandom.nodeValue.split(/(\s+)/);
 
-            // Modificamos aproximadamente el 30% de las palabras de ese nodo por "XXXXX"
             const palabrasModificadas = palabras.map(palabra => {
-                // Filtramos que sea una palabra real con caracteres alfanuméricos y aplicamos azar
-                if (/[a-zA-Z0-9]/.test(palabra) && Math.random() < 0.30) {
-                    const longitudX = palabra.length;
-                    return `<span class="alien-word-glitch">${"X".repeat(longitudX)}</span>`;
+                // Sube la cantidad de palabras afectadas al 45% dentro del bloque interceptado
+                if (/[a-zA-Z0-9]/.test(palabra) && Math.random() < 0.45) {
+                    return `<span class="alien-word-glitch">${"X".repeat(palabra.length)}</span>`;
                 }
                 return palabra;
             });
 
-            // Creamos un contenedor temporal para inyectar el cambio de forma segura como nodos HTML
             const temporalSpan = document.createElement('span');
             temporalSpan.innerHTML = palabrasModificadas.join('');
             nodoRandom.parentNode.replaceChild(temporalSpan, nodoRandom);
 
-            // El micro-bloqueo de palabras dura entre 1.5 y 3 segundos en pantalla
-            const duracionHackeoPalabra = Math.floor(Math.random() * 1500) + 1500;
+            // Persistencia del cifrado en pantalla (1.5 a 3.5 segundos)
             setTimeout(() => {
                 textoEjercicio.innerHTML = contenidoOriginal;
-            }, duracionHackeoPalabra);
+            }, Math.floor(Math.random() * 2000) + 1500);
         }
     }
 
-    // Intervalo variable largo de 15 a 30 segundos
-    const proximoIntervaloLargo = Math.floor(Math.random() * 15000) + 15000;
+    // Sincronización agresiva: Próxima inyección de XXXXX entre 4000ms (4s) y 10000ms (10s)
+    const proximoIntervaloLargo = Math.floor(Math.random() * 8000) + 10000;
     setTimeout(programarAtaquePalabrasAlien, proximoIntervaloLargo);
 }
 
-// Inicialización de ambos subprocesos paralelos al cargar la interfaz
+// Inicialización de la ofensiva alienígena
 setTimeout(programarAtaqueTarjetasAlien, 1000);
-setTimeout(programarAtaquePalabrasAlien, 5000);
+setTimeout(programarAtaquePalabrasAlien, 3000);
 
     window.onload = function() {
         const select = document.getElementById('select-country');
