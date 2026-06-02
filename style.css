@@ -208,3 +208,84 @@
     transition: none !important;
     pointer-events: auto !important;
 }
+
+/* --- EFECTOS DE ATAQUE ALIENÍGENA --- */
+
+/* --- EFECTOS DE ATAQUE ALIENÍGENA AVANZADO (NO INTRUSIVO) --- */
+
+/* Animación de temblor (Sismo táctico continuo) */
+@keyframes alien-shake {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    20% { transform: translate(-2px, 1px) rotate(-0.5deg); }
+    40% { transform: translate(1.5px, -1px) rotate(0.5deg); }
+    60% { transform: translate(-1px, -1.5px) rotate(0deg); }
+    80% { transform: translate(2px, 1px) rotate(-0.5deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+/* Animación de distorsión de color e interferencia de datos */
+@keyframes alien-hacking-blur {
+    0% { filter: blur(0px); text-shadow: none; }
+    10% { filter: blur(2px); text-shadow: 2px 0 var(--xcom-alert), -2px 0 #00ff00; color: var(--xcom-alert); }
+    15% { filter: blur(0px); text-shadow: none; }
+    70% { filter: blur(0px); text-shadow: none; }
+    72% { filter: blur(3px); text-shadow: -3px 0 var(--xcom-blue), 3px 0 var(--xcom-gold); }
+    75% { filter: blur(1px); text-shadow: none; }
+    100% { filter: blur(0px); text-shadow: none; }
+}
+
+/* Clases dinámicas aplicadas a las tarjetas */
+.alien-attack-shake {
+    animation: alien-shake 0.2s infinite linear;
+    border-color: var(--xcom-alert) !important;
+    box-shadow: 0 0 12px rgba(255, 51, 51, 0.4) !important;
+}
+
+.alien-attack-blur {
+    animation: alien-hacking-blur 0.8s infinite linear;
+}
+
+/* Capa estética de glitch sobre la tarjeta afectada (No bloquea clics) */
+.alien-attack-shake::before {
+    content: "CRITICAL_INTRUSION";
+    position: absolute;
+    top: 2px;
+    left: 5px;
+    font-size: 0.6em;
+    color: var(--xcom-alert);
+    font-family: monospace;
+    opacity: 0.7;
+    pointer-events: none; /* Crucial para dejar hacer clic en la tarjeta */
+}
+
+/* --- DISTORSIÓN DE TEXTO ALIENÍGENA DE MISIÓN --- */
+
+@keyframes alien-text-glitch {
+    0% { opacity: 1; filter: none; transform: skew(0deg); }
+    2% { opacity: 0.75; filter: blur(1px); transform: skew(3deg); text-shadow: 2px 0 var(--xcom-alert); }
+    4% { opacity: 1; filter: none; transform: skew(0deg); text-shadow: none; }
+    30% { opacity: 1; filter: none; }
+    32% { opacity: 0.6; filter: blur(2px); text-shadow: -2px 0 var(--xcom-blue), 2px 0 var(--xcom-gold); }
+    34% { opacity: 0.9; filter: none; text-shadow: none; }
+    100% { opacity: 1; filter: none; }
+}
+
+/* Intermitencia cibernética para todo el bloque de texto */
+.alien-hacking-text {
+    animation: alien-text-glitch 1.5s infinite steps(1);
+    color: var(--xcom-alert) !important;
+    transition: color 0.1s ease;
+}
+
+/* --- EFECTO DE REEMPLAZO DE CARACTERES ALIENÍGENAS --- */
+.alien-corrupted-text {
+    animation: alien-text-glitch 1s infinite steps(1);
+    color: var(--xcom-alert) !important;
+}
+
+/* --- CORRUPCIÓN DE PALABRAS ALIENÍGENAS --- */
+.alien-word-glitch {
+    color: var(--xcom-alert) !important;
+    text-shadow: 0 0 4px var(--xcom-alert);
+    font-weight: bold;
+}
